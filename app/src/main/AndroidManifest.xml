@@ -7,7 +7,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.BirukKeyboardApp">
         <activity
-            android:name=".MainActivity"
+            android:name=".KeyboardConsoleActivity"
             android:exported="true"
             android:screenOrientation="landscape">
             <intent-filter>
