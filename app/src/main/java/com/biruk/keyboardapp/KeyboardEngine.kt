@@ -4,6 +4,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import kotlin.math.PI
+import kotlin.math.pow
 import kotlin.math.sin
 
 class KeyboardEngine {
@@ -119,43 +120,48 @@ class KeyboardEngine {
         val buffer = ShortArray(BUFFER_SIZE)
 
         while (running) {
+            var hasVoices = false
             synchronized(lock) {
-                if (voices.isEmpty()) {
-                    buffer.fill(0)
-                    track.write(buffer, 0, buffer.size, AudioTrack.WRITE_BLOCKING)
-                    return@synchronized
-                }
-
-                val completedNotes = mutableSetOf<Int>()
-                for (i in buffer.indices) {
-                    var mix = 0.0
-                    val iterator = voices.values.iterator()
-                    while (iterator.hasNext()) {
-                        val voice = iterator.next()
-                        val releaseFactor = if (voice.releaseFramesLeft >= 0) {
-                            voice.releaseFramesLeft.toDouble() / voice.releaseFramesTotal.toDouble()
-                        } else {
-                            1.0
-                        }
-                        mix += sin(voice.phase) * voice.amplitude * releaseFactor
-                        voice.phase += voice.phaseIncrement
-                        if (voice.phase > TWO_PI) {
-                            voice.phase -= TWO_PI
-                        }
-                        if (voice.releaseFramesLeft >= 0) {
-                            voice.releaseFramesLeft -= 1
-                            if (voice.releaseFramesLeft <= 0) {
-                                completedNotes += voice.midiNote
+                hasVoices = voices.isNotEmpty()
+                if (hasVoices) {
+                    val completedNotes = mutableSetOf<Int>()
+                    for (i in buffer.indices) {
+                        var mix = 0.0
+                        val iterator = voices.values.iterator()
+                        while (iterator.hasNext()) {
+                            val voice = iterator.next()
+                            val releaseFactor = if (voice.releaseFramesLeft >= 0) {
+                                voice.releaseFramesLeft.toDouble() / voice.releaseFramesTotal.toDouble()
+                            } else {
+                                1.0
+                            }
+                            mix += sin(voice.phase) * voice.amplitude * releaseFactor
+                            voice.phase += voice.phaseIncrement
+                            if (voice.phase > TWO_PI) {
+                                voice.phase -= TWO_PI
+                            }
+                            if (voice.releaseFramesLeft >= 0) {
+                                voice.releaseFramesLeft -= 1
+                                if (voice.releaseFramesLeft <= 0) {
+                                    completedNotes += voice.midiNote
+                                }
                             }
                         }
+                        buffer[i] = (mix.coerceIn(-1.0, 1.0) * Short.MAX_VALUE).toInt().toShort()
                     }
-                    buffer[i] = (mix.coerceIn(-1.0, 1.0) * Short.MAX_VALUE).toInt().toShort()
-                }
-                completedNotes.forEach { note ->
-                    voices.remove(note)
+                    completedNotes.forEach { note ->
+                        voices.remove(note)
+                    }
                 }
             }
-            track.write(buffer, 0, buffer.size, AudioTrack.WRITE_BLOCKING)
+
+            if (hasVoices) {
+                track.write(buffer, 0, buffer.size, AudioTrack.WRITE_BLOCKING)
+            } else {
+                buffer.fill(0)
+                track.write(buffer, 0, buffer.size, AudioTrack.WRITE_BLOCKING)
+                Thread.sleep(16)
+            }
         }
     }
 
@@ -166,11 +172,9 @@ class KeyboardEngine {
         return 440.0 * 2.0.pow((midiNote - 69) / 12.0)
     }
 
-    private fun Double.pow(exponent: Double): Double = kotlin.math.pow(this, exponent)
-
     companion object {
         private const val SAMPLE_RATE = 44100
         private const val BUFFER_SIZE = 1024
-        private const val TWO_PI = (PI * 2.0)
+        private val TWO_PI = PI * 2.0
     }
 }
