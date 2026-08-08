@@ -10,11 +10,11 @@ import android.view.MotionEvent
 import android.view.View
 import kotlin.math.max
 
-class KeyboardSurfaceView @JvmOverloads constructor(
+class KeyboardSurfaceView(
     context: Context,
-    attrs: AttributeSet? = null,
     private val engine: KeyboardEngine,
     private val onNotesChanged: (String) -> Unit,
+    attrs: AttributeSet? = null,
 ) : View(context, attrs) {
 
     private val startMidi = 21
