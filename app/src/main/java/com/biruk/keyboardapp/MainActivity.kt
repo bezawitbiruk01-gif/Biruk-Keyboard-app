@@ -82,7 +82,7 @@ class MainActivity : AppCompatActivity() {
             text = "BIRUK MUSIC KEYBOARD"
             setTextColor(TEXT_PRIMARY)
             textSize = 18f
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTypeface(null, android.graphics.Typeface.BOLD)
         })
         titleStack.addView(TextView(this).apply {
             text = "Landscape performance console · offline synth · Genos-inspired workflow"
@@ -184,9 +184,9 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, dp(8), 0, 0)
         }
         val keyboardView = KeyboardSurfaceView(
-            context = this,
-            engine = engine,
-            onNotesChanged = { labels -> noteValue.text = buildLabel("Keys", labels.ifBlank { "Ready" }) },
+            this,
+            engine,
+            { labels -> noteValue.text = buildLabel("Keys", labels.ifBlank { "Ready" }) },
         ).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
