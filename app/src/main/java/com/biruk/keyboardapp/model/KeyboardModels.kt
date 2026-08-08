@@ -13,6 +13,8 @@ data class KeyboardUiState(
     val tempo: Int = 120,
     val mixerBalance: Int = 50,
     val effectDepth: Int = 35,
+    val lastScreenId: String = "performance",
+    val favoriteRegistrationsCsv: String = "",
     val statusText: String = "Ready",
 )
 
