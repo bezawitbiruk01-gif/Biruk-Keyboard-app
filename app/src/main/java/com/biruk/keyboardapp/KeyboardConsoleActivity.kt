@@ -12,8 +12,10 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.biruk.keyboardapp.layout.defaultConsoleLayoutSpec
 import com.biruk.keyboardapp.model.KeyboardBank
+import com.biruk.keyboardapp.model.KeyboardConsoleSection
 import com.biruk.keyboardapp.model.KeyboardUiState
 import com.biruk.keyboardapp.model.defaultKeyboardBank
+import com.biruk.keyboardapp.state.KeyboardSessionStore
 import com.google.android.material.button.MaterialButton
 
 class KeyboardConsoleActivity : AppCompatActivity() {
@@ -21,6 +23,7 @@ class KeyboardConsoleActivity : AppCompatActivity() {
     private val keyboardBank: KeyboardBank = defaultKeyboardBank()
     private val layoutSpec = defaultConsoleLayoutSpec()
 
+    private lateinit var sessionStore: KeyboardSessionStore
     private var uiState = KeyboardUiState()
 
     private lateinit var voiceValue: TextView
@@ -31,18 +34,29 @@ class KeyboardConsoleActivity : AppCompatActivity() {
     private lateinit var tempoValue: TextView
     private lateinit var mixerValue: TextView
     private lateinit var effectValue: TextView
+    private lateinit var lastScreenValue: TextView
+    private lateinit var favoritesValue: TextView
     private lateinit var noteValue: TextView
     private lateinit var statusValue: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        sessionStore = KeyboardSessionStore(this)
+        uiState = sessionStore.load()
+        engine.transposeSemitones = uiState.transposeSemitones
         engine.start()
         setContentView(buildContent())
-        refreshDisplay("Landscape Genos-inspired console ready")
+        refreshDisplay(uiState.statusText.ifBlank { "Landscape Genos-inspired console ready" })
+    }
+
+    override fun onPause() {
+        sessionStore.save(uiState)
+        super.onPause()
     }
 
     override fun onDestroy() {
+        sessionStore.save(uiState)
         engine.release()
         super.onDestroy()
     }
@@ -56,9 +70,14 @@ class KeyboardConsoleActivity : AppCompatActivity() {
 
         root.addView(buildHeader())
         root.addView(buildTransportBar())
-        root.addView(buildWorkspace(), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, layoutSpec.workspaceFlex))
-        root.addView(buildKeyboardStrip(), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(layoutSpec.keyboardStripHeightDp)))
-
+        root.addView(
+            buildWorkspace(),
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, layoutSpec.workspaceFlex),
+        )
+        root.addView(
+            buildKeyboardStrip(),
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(layoutSpec.keyboardStripHeightDp)),
+        )
         return root
     }
 
@@ -70,21 +89,22 @@ class KeyboardConsoleActivity : AppCompatActivity() {
             setPadding(dp(14), dp(12), dp(14), dp(12))
         }
 
-        val titleStack = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-
-        titleStack.addView(TextView(this).apply {
-            text = uiState.title
-            setTextColor(TEXT_PRIMARY)
-            textSize = 20f
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
-        })
-        titleStack.addView(TextView(this).apply {
-            text = uiState.subtitle
-            setTextColor(TEXT_SECONDARY)
-            textSize = 11.5f
-        })
+        val titleStack = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        titleStack.addView(
+            TextView(this).apply {
+                text = uiState.title
+                setTextColor(TEXT_PRIMARY)
+                textSize = 20f
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+            },
+        )
+        titleStack.addView(
+            TextView(this).apply {
+                text = uiState.subtitle
+                setTextColor(TEXT_SECONDARY)
+                textSize = 11.5f
+            },
+        )
 
         val badges = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -92,7 +112,7 @@ class KeyboardConsoleActivity : AppCompatActivity() {
         }
         badges.addView(statusBadge("OFFLINE", PRIMARY_VARIANT))
         badges.addView(statusBadge("LANDSCAPE", ACCENT))
-        badges.addView(statusBadge("ORIGINAL UI", TEAL))
+        badges.addView(statusBadge(lastScreenBadgeText(), TEAL))
 
         header.addView(titleStack, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         header.addView(badges)
@@ -114,9 +134,10 @@ class KeyboardConsoleActivity : AppCompatActivity() {
             row.addView(chipButton(label, action))
         }
 
-        add("VOICE") { cycleVoice() }
-        add("STYLE") { cycleStyle() }
-        add("REG") { cycleRegistration() }
+        add("VOICE") { selectLastScreen("voice"); cycleVoice() }
+        add("STYLE") { selectLastScreen("performance"); cycleStyle() }
+        add("REG") { selectLastScreen("performance"); cycleRegistration() }
+        add("FAV") { selectLastScreen("performance"); toggleFavoriteRegistration() }
         add("SPLIT") { toggleSplit() }
         add("LAYER") { toggleLayer() }
         add("SUSTAIN") { toggleSustain() }
@@ -142,17 +163,22 @@ class KeyboardConsoleActivity : AppCompatActivity() {
             setPadding(0, dp(8), 0, dp(8))
         }
 
-        val leftPanel = panelCard(layoutSpec.sections[0].title) {
+        val leftPanel = buildPanel(layoutSpec.sections[0]) {
             add(sectionHint(layoutSpec.sections[0].accentHint))
             keyboardBank.voices.forEachIndexed { index, voice ->
                 add(controlMiniButton(voice) {
-                    uiState = uiState.copy(voiceIndex = index)
-                    refreshDisplay("Voice selected: $voice")
+                    updateState(
+                        uiState.copy(
+                            voiceIndex = index,
+                            lastScreenId = "voice",
+                            statusText = "Voice selected: $voice",
+                        ),
+                    )
                 })
             }
         }
 
-        val centerPanel = panelCard(layoutSpec.sections[1].title) {
+        val centerPanel = buildPanel(layoutSpec.sections[1]) {
             add(metricRow("Voice", keyboardBank.voices[uiState.voiceIndex]))
             add(metricRow("Style", keyboardBank.styles[uiState.styleIndex]))
             add(metricRow("Registration", keyboardBank.registrations[uiState.registrationIndex]))
@@ -161,16 +187,19 @@ class KeyboardConsoleActivity : AppCompatActivity() {
             add(metricRow("Tempo", "${uiState.tempo} BPM"))
             add(metricRow("Mixer", "${uiState.mixerBalance} / 100"))
             add(metricRow("Effect", "${uiState.effectDepth} / 100"))
+            add(metricRow("Last Screen", uiState.lastScreenId))
+            add(metricRow("Favorites", favoritesSummary()))
             add(metricRow("Keys", "Ready"))
             add(metricRow("Status", uiState.statusText))
 
             add(spacer(12))
-
-            add(TextView(this@KeyboardConsoleActivity).apply {
-                text = "Quick performance"
-                setTextColor(TEXT_SECONDARY)
-                textSize = 12f
-            })
+            add(
+                TextView(this@KeyboardConsoleActivity).apply {
+                    text = "Quick performance"
+                    setTextColor(TEXT_SECONDARY)
+                    textSize = 12f
+                },
+            )
 
             val quickRow = LinearLayout(this@KeyboardConsoleActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -182,11 +211,11 @@ class KeyboardConsoleActivity : AppCompatActivity() {
             add(quickRow)
         }
 
-        val rightPanel = panelCard(layoutSpec.sections[2].title) {
+        val rightPanel = buildPanel(layoutSpec.sections[2]) {
             add(sectionHint(layoutSpec.sections[2].accentHint))
-            add(controlMiniButton("Style next") { cycleStyle() })
-            add(controlMiniButton("Voice next") { cycleVoice() })
-            add(controlMiniButton("Reg next") { cycleRegistration() })
+            add(controlMiniButton("Style next") { selectLastScreen("performance"); cycleStyle() })
+            add(controlMiniButton("Voice next") { selectLastScreen("voice"); cycleVoice() })
+            add(controlMiniButton("Reg next") { selectLastScreen("performance"); cycleRegistration() })
             add(controlMiniButton("Tempo +") { adjustTempo(5) })
             add(controlMiniButton("Tempo -") { adjustTempo(-5) })
             add(controlMiniButton("Mixer +") { adjustMixer(5) })
@@ -194,14 +223,19 @@ class KeyboardConsoleActivity : AppCompatActivity() {
             add(controlMiniButton("Stop All") { engine.stopAll(); refreshDisplay("All voices stopped") })
         }
 
-        workspace.addView(leftPanel, LinearLayout.LayoutParams(dp(192), LinearLayout.LayoutParams.MATCH_PARENT).apply {
-            marginEnd = dp(10)
-        })
-        workspace.addView(centerPanel, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
-            marginEnd = dp(10)
-        })
+        workspace.addView(
+            leftPanel,
+            LinearLayout.LayoutParams(dp(192), LinearLayout.LayoutParams.MATCH_PARENT).apply {
+                marginEnd = dp(10)
+            },
+        )
+        workspace.addView(
+            centerPanel,
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+                marginEnd = dp(10)
+            },
+        )
         workspace.addView(rightPanel, LinearLayout.LayoutParams(dp(192), LinearLayout.LayoutParams.MATCH_PARENT))
-
         return workspace
     }
 
@@ -212,11 +246,13 @@ class KeyboardConsoleActivity : AppCompatActivity() {
             setPadding(dp(10), dp(10), dp(10), dp(10))
         }
 
-        keyboardShell.addView(TextView(this).apply {
-            text = "FULL KEYBOARD"
-            setTextColor(TEXT_SECONDARY)
-            textSize = 11f
-        })
+        keyboardShell.addView(
+            TextView(this).apply {
+                text = "FULL KEYBOARD"
+                setTextColor(TEXT_SECONDARY)
+                textSize = 11f
+            },
+        )
 
         val keyboardScroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
@@ -226,24 +262,32 @@ class KeyboardConsoleActivity : AppCompatActivity() {
         val keyboardView = KeyboardSurfaceView(
             context = this,
             engine = engine,
-            onNotesChanged = { labels -> noteValue.text = buildLabel("Keys", labels.ifBlank { "Ready" }) },
+            onNotesChanged = { labels ->
+                updateState(uiState.copy(lastScreenId = "keyboard"))
+                noteValue.text = buildLabel("Keys", labels.ifBlank { "Ready" })
+            },
         )
 
         keyboardScroll.addView(keyboardView)
-        keyboardShell.addView(keyboardScroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT))
+        keyboardShell.addView(
+            keyboardScroll,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT),
+        )
         return keyboardShell
     }
 
-    private fun panelCard(title: String, body: LinearLayout.() -> Unit): LinearLayout {
+    private fun buildPanel(section: KeyboardConsoleSection, body: LinearLayout.() -> Unit): LinearLayout {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(SURFACE)
             setPadding(dp(14), dp(14), dp(14), dp(14))
-            addView(TextView(this@KeyboardConsoleActivity).apply {
-                text = title
-                setTextColor(TEXT_SECONDARY)
-                textSize = 11.5f
-            })
+            addView(
+                TextView(this@KeyboardConsoleActivity).apply {
+                    text = section.title
+                    setTextColor(TEXT_SECONDARY)
+                    textSize = 11.5f
+                },
+            )
             body()
         }
     }
@@ -328,77 +372,158 @@ class KeyboardConsoleActivity : AppCompatActivity() {
         tempoValue.text = buildLabel("Tempo", "${uiState.tempo} BPM")
         mixerValue.text = buildLabel("Mixer", "${uiState.mixerBalance} / 100")
         effectValue.text = buildLabel("Effect", "${uiState.effectDepth} / 100")
+        lastScreenValue.text = buildLabel("Last Screen", uiState.lastScreenId)
+        favoritesValue.text = buildLabel("Favorites", favoritesSummary())
         noteValue.text = buildLabel("Keys", "Ready")
         statusValue.text = buildLabel("Status", uiState.statusText)
     }
 
+    private fun updateState(next: KeyboardUiState) {
+        uiState = next
+        engine.transposeSemitones = uiState.transposeSemitones
+        refreshDisplay(uiState.statusText)
+    }
+
     private fun resetControls() {
-        uiState = uiState.copy(
-            splitEnabled = false,
-            layerEnabled = false,
-            sustainEnabled = false,
-            transposeSemitones = 0,
-            tempo = 120,
-            mixerBalance = 50,
-            effectDepth = 35,
-            statusText = "Reset to center",
+        updateState(
+            uiState.copy(
+                splitEnabled = false,
+                layerEnabled = false,
+                sustainEnabled = false,
+                transposeSemitones = 0,
+                tempo = 120,
+                mixerBalance = 50,
+                effectDepth = 35,
+                lastScreenId = "performance",
+                statusText = "Reset to center",
+            ),
         )
-        engine.transposeSemitones = 0
-        refreshDisplay("Reset to center")
     }
 
     private fun cycleVoice() {
         val next = (uiState.voiceIndex + 1) % keyboardBank.voices.size
-        uiState = uiState.copy(voiceIndex = next, statusText = "Voice changed")
-        refreshDisplay("Voice changed")
+        updateState(
+            uiState.copy(
+                voiceIndex = next,
+                lastScreenId = "voice",
+                statusText = "Voice changed",
+            ),
+        )
     }
 
     private fun cycleStyle() {
         val next = (uiState.styleIndex + 1) % keyboardBank.styles.size
-        uiState = uiState.copy(styleIndex = next, statusText = "Style changed")
-        refreshDisplay("Style changed")
+        updateState(
+            uiState.copy(
+                styleIndex = next,
+                lastScreenId = "performance",
+                statusText = "Style changed",
+            ),
+        )
     }
 
     private fun cycleRegistration() {
         val next = (uiState.registrationIndex + 1) % keyboardBank.registrations.size
-        uiState = uiState.copy(registrationIndex = next, statusText = "Registration changed")
-        refreshDisplay("Registration changed")
+        updateState(
+            uiState.copy(
+                registrationIndex = next,
+                lastScreenId = "performance",
+                statusText = "Registration changed",
+            ),
+        )
+    }
+
+    private fun toggleFavoriteRegistration() {
+        val current = keyboardBank.registrations[uiState.registrationIndex]
+        val favorites = favoriteRegistrationSet().toMutableSet()
+        if (!favorites.add(current)) {
+            favorites.remove(current)
+        }
+        updateState(
+            uiState.copy(
+                favoriteRegistrationsCsv = favorites.joinToString(","),
+                lastScreenId = "performance",
+                statusText = if (favorites.contains(current)) {
+                    "Favorite saved: $current"
+                } else {
+                    "Favorite removed: $current"
+                },
+            ),
+        )
     }
 
     private fun toggleSplit() {
-        uiState = uiState.copy(splitEnabled = !uiState.splitEnabled, statusText = "Split toggled")
-        refreshDisplay("Split toggled")
+        updateState(
+            uiState.copy(
+                splitEnabled = !uiState.splitEnabled,
+                lastScreenId = "performance",
+                statusText = "Split toggled",
+            ),
+        )
     }
 
     private fun toggleLayer() {
-        uiState = uiState.copy(layerEnabled = !uiState.layerEnabled, statusText = "Layer toggled")
-        refreshDisplay("Layer toggled")
+        updateState(
+            uiState.copy(
+                layerEnabled = !uiState.layerEnabled,
+                lastScreenId = "performance",
+                statusText = "Layer toggled",
+            ),
+        )
     }
 
     private fun toggleSustain() {
-        uiState = uiState.copy(sustainEnabled = !uiState.sustainEnabled, statusText = "Sustain toggled")
-        refreshDisplay("Sustain toggled")
+        updateState(
+            uiState.copy(
+                sustainEnabled = !uiState.sustainEnabled,
+                lastScreenId = "performance",
+                statusText = "Sustain toggled",
+            ),
+        )
     }
 
     private fun adjustTranspose(delta: Int) {
-        uiState = uiState.copy(transposeSemitones = uiState.transposeSemitones + delta)
-        engine.transposeSemitones = uiState.transposeSemitones
-        refreshDisplay(if (delta > 0) "Transpose up" else "Transpose down")
+        updateState(
+            uiState.copy(
+                transposeSemitones = (uiState.transposeSemitones + delta),
+                lastScreenId = "performance",
+                statusText = if (delta > 0) "Transpose up" else "Transpose down",
+            ),
+        )
     }
 
     private fun adjustTempo(delta: Int) {
-        uiState = uiState.copy(tempo = (uiState.tempo + delta).coerceIn(40, 240))
-        refreshDisplay(if (delta > 0) "Tempo up" else "Tempo down")
+        updateState(
+            uiState.copy(
+                tempo = (uiState.tempo + delta).coerceIn(40, 240),
+                lastScreenId = "performance",
+                statusText = if (delta > 0) "Tempo up" else "Tempo down",
+            ),
+        )
     }
 
     private fun adjustMixer(delta: Int) {
-        uiState = uiState.copy(mixerBalance = (uiState.mixerBalance + delta).coerceIn(0, 100))
-        refreshDisplay(if (delta > 0) "Mixer up" else "Mixer down")
+        updateState(
+            uiState.copy(
+                mixerBalance = (uiState.mixerBalance + delta).coerceIn(0, 100),
+                lastScreenId = "performance",
+                statusText = if (delta > 0) "Mixer up" else "Mixer down",
+            ),
+        )
     }
 
     private fun adjustEffect(delta: Int) {
-        uiState = uiState.copy(effectDepth = (uiState.effectDepth + delta).coerceIn(0, 100))
-        refreshDisplay(if (delta > 0) "Effect up" else "Effect down")
+        updateState(
+            uiState.copy(
+                effectDepth = (uiState.effectDepth + delta).coerceIn(0, 100),
+                lastScreenId = "performance",
+                statusText = if (delta > 0) "Effect up" else "Effect down",
+            ),
+        )
+    }
+
+    private fun selectLastScreen(screenId: String) {
+        uiState = uiState.copy(lastScreenId = screenId)
     }
 
     private fun currentModesText(): String = listOf(
@@ -413,6 +538,29 @@ class KeyboardConsoleActivity : AppCompatActivity() {
         "${uiState.transposeSemitones} semitones"
     }
 
+    private fun favoritesSummary(): String {
+        val favorites = favoriteRegistrationSet()
+        return if (favorites.isEmpty()) {
+            "None"
+        } else {
+            favorites.joinToString(" · ")
+        }
+    }
+
+    private fun favoriteRegistrationSet(): Set<String> {
+        return uiState.favoriteRegistrationsCsv
+            .split(',')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .toSet()
+    }
+
+    private fun lastScreenBadgeText(): String {
+        return uiState.lastScreenId
+            .replace('_', ' ')
+            .replaceFirstChar { char -> char.uppercase() }
+    }
+
     private fun buildLabel(label: String, value: String): String = "$label: $value"
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
@@ -423,8 +571,8 @@ class KeyboardConsoleActivity : AppCompatActivity() {
         private val PRIMARY = Color.parseColor("#4D8DFF")
         private val PRIMARY_VARIANT = Color.parseColor("#2757C9")
         private val ACCENT = Color.parseColor("#7E57C2")
-        private val TEAL = Color.parseColor("#00897B")
-        private val CHIP = Color.parseColor("#182433")
+        private val TEAL = Color.parseColor("#1D9A8A")
+        private val CHIP = Color.parseColor("#1A2431")
         private val TEXT_PRIMARY = Color.parseColor("#F6FAFF")
         private val TEXT_SECONDARY = Color.parseColor("#B5C1D1")
     }
