@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bk_background">#0B1118</color>
+    <color name="bk_surface">#101923</color>
+    <color name="bk_surface_variant">#182431</color>
+    <color name="bk_primary">#4D8DFF</color>
+    <color name="bk_primary_variant">#2757C9</color>
+    <color name="bk_accent">#6DDFCF</color>
+    <color name="bk_text_primary">#F6FAFF</color>
+    <color name="bk_text_secondary">#B5C1D1</color>
+    <color name="bk_keyboard_white">#F5F7FB</color>
+    <color name="bk_keyboard_black">#1A1F26</color>
+</resources>
