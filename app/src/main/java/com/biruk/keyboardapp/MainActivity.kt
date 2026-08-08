@@ -8,7 +8,6 @@ import android.view.Gravity
 import android.view.View
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
@@ -95,7 +94,6 @@ class MainActivity : AppCompatActivity() {
         root.addView(buildTransportBar())
         root.addView(buildWorkspace(), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         root.addView(buildKeyboardStrip(), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(260)))
-
         return root
     }
 
@@ -107,10 +105,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(14), dp(12), dp(14), dp(12))
         }
 
-        val titleStack = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-
+        val titleStack = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         titleStack.addView(TextView(this).apply {
             text = "BIRUK MUSIC KEYBOARD"
             setTextColor(TEXT_PRIMARY)
@@ -127,7 +122,6 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
         }
-
         badges.addView(statusBadge("OFFLINE", PRIMARY_VARIANT))
         badges.addView(statusBadge("LANDSCAPE", ACCENT))
         badges.addView(statusBadge("GENOS INSPIRED", TEAL))
@@ -181,29 +175,28 @@ class MainActivity : AppCompatActivity() {
         }
 
         val leftPanel = panelCard("VOICE BANK") {
-            add(controlMiniButton("Grand Piano") { voiceIndex = 0; refreshDisplay("Grand Piano selected") })
-            add(controlMiniButton("Bright Piano") { voiceIndex = 1; refreshDisplay("Bright Piano selected") })
-            add(controlMiniButton("EP / Organ") { voiceIndex = 2; refreshDisplay("Electric Piano selected") })
-            add(controlMiniButton("Strings") { voiceIndex = 4; refreshDisplay("Strings selected") })
-            add(controlMiniButton("Brass") { voiceIndex = 5; refreshDisplay("Brass selected") })
-            add(controlMiniButton("Pad") { voiceIndex = 6; refreshDisplay("Pad selected") })
+            append(controlMiniButton("Grand Piano") { voiceIndex = 0; refreshDisplay("Grand Piano selected") })
+            append(controlMiniButton("Bright Piano") { voiceIndex = 1; refreshDisplay("Bright Piano selected") })
+            append(controlMiniButton("EP / Organ") { voiceIndex = 2; refreshDisplay("Electric Piano selected") })
+            append(controlMiniButton("Strings") { voiceIndex = 4; refreshDisplay("Strings selected") })
+            append(controlMiniButton("Brass") { voiceIndex = 5; refreshDisplay("Brass selected") })
+            append(controlMiniButton("Pad") { voiceIndex = 6; refreshDisplay("Pad selected") })
         }
 
         val centerPanel = panelCard("PERFORMANCE DISPLAY") {
-            add(metricRow("Voice", voicePresets[voiceIndex]))
-            add(metricRow("Style", stylePresets[styleIndex]))
-            add(metricRow("Registration", registrationNames[registrationIndex]))
-            add(metricRow("Modes", currentModesText()))
-            add(metricRow("Transpose", transposeText()))
-            add(metricRow("Tempo", "$tempo BPM"))
-            add(metricRow("Mixer", "$mixerBalance / 100"))
-            add(metricRow("Effect", "$effectDepth / 100"))
-            add(metricRow("Keys", "Ready"))
-            add(metricRow("Status", "Touch the keys to play offline audio"))
+            voiceValue = metricRow("Voice", voicePresets[voiceIndex])
+            styleValue = metricRow("Style", stylePresets[styleIndex])
+            regValue = metricRow("Registration", registrationNames[registrationIndex])
+            modeValue = metricRow("Modes", currentModesText())
+            transposeValue = metricRow("Transpose", transposeText())
+            tempoValue = metricRow("Tempo", "$tempo BPM")
+            mixerValue = metricRow("Mixer", "$mixerBalance / 100")
+            effectValue = metricRow("Effect", "$effectDepth / 100")
+            noteValue = metricRow("Keys", "Ready")
+            statusValue = metricRow("Status", "Touch the keys to play offline audio")
 
-            add(spacer(12))
-
-            add(TextView(this@MainActivity).apply {
+            append(spacer(12))
+            append(TextView(this@MainActivity).apply {
                 text = "Quick performance"
                 setTextColor(TEXT_SECONDARY)
                 textSize = 12f
@@ -216,26 +209,22 @@ class MainActivity : AppCompatActivity() {
             quickRow.addView(chipButton("LAYER") { layerEnabled = !layerEnabled; refreshDisplay("Layer toggled") })
             quickRow.addView(chipButton("SUSTAIN") { sustainEnabled = !sustainEnabled; refreshDisplay("Sustain toggled") })
             quickRow.addView(chipButton("CENTER") { resetControls(); refreshDisplay("Reset to center") })
-            add(quickRow)
+            append(quickRow)
         }
 
         val rightPanel = panelCard("PERFORMANCE") {
-            add(controlMiniButton("Style next") { cycleStyle() })
-            add(controlMiniButton("Voice next") { cycleVoice() })
-            add(controlMiniButton("Reg next") { cycleRegistration() })
-            add(controlMiniButton("Tempo +") { tempo = (tempo + 5).coerceAtMost(240); refreshDisplay("Tempo up") })
-            add(controlMiniButton("Tempo -") { tempo = (tempo - 5).coerceAtLeast(40); refreshDisplay("Tempo down") })
-            add(controlMiniButton("Mixer +") { mixerBalance = (mixerBalance + 5).coerceAtMost(100); refreshDisplay("Mixer up") })
-            add(controlMiniButton("Effect +") { effectDepth = (effectDepth + 5).coerceAtMost(100); refreshDisplay("Effect up") })
-            add(controlMiniButton("Stop All") { engine.stopAll(); refreshDisplay("All voices stopped") })
+            append(controlMiniButton("Style next") { cycleStyle() })
+            append(controlMiniButton("Voice next") { cycleVoice() })
+            append(controlMiniButton("Reg next") { cycleRegistration() })
+            append(controlMiniButton("Tempo +") { tempo = (tempo + 5).coerceAtMost(240); refreshDisplay("Tempo up") })
+            append(controlMiniButton("Tempo -") { tempo = (tempo - 5).coerceAtLeast(40); refreshDisplay("Tempo down") })
+            append(controlMiniButton("Mixer +") { mixerBalance = (mixerBalance + 5).coerceAtMost(100); refreshDisplay("Mixer up") })
+            append(controlMiniButton("Effect +") { effectDepth = (effectDepth + 5).coerceAtMost(100); refreshDisplay("Effect up") })
+            append(controlMiniButton("Stop All") { engine.stopAll(); refreshDisplay("All voices stopped") })
         }
 
-        workspace.addView(leftPanel, LinearLayout.LayoutParams(dp(190), LinearLayout.LayoutParams.MATCH_PARENT).apply {
-            marginEnd = dp(10)
-        })
-        workspace.addView(centerPanel, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
-            marginEnd = dp(10)
-        })
+        workspace.addView(leftPanel, LinearLayout.LayoutParams(dp(190), LinearLayout.LayoutParams.MATCH_PARENT).apply { marginEnd = dp(10) })
+        workspace.addView(centerPanel, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply { marginEnd = dp(10) })
         workspace.addView(rightPanel, LinearLayout.LayoutParams(dp(190), LinearLayout.LayoutParams.MATCH_PARENT))
 
         return workspace
@@ -248,12 +237,11 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(10), dp(10), dp(10), dp(10))
         }
 
-        val title = TextView(this).apply {
+        keyboardShell.addView(TextView(this).apply {
             text = "KEYBOARD"
             setTextColor(TEXT_SECONDARY)
             textSize = 11f
-        }
-        keyboardShell.addView(title)
+        })
 
         val keyboardScroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
@@ -276,12 +264,11 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(SURFACE)
             setPadding(dp(14), dp(14), dp(14), dp(14))
-            val titleView = TextView(this@MainActivity).apply {
+            addView(TextView(this@MainActivity).apply {
                 text = title
                 setTextColor(TEXT_SECONDARY)
                 textSize = 11.5f
-            }
-            addView(titleView)
+            })
             body()
         }
     }
@@ -293,13 +280,17 @@ class MainActivity : AppCompatActivity() {
             textSize = 14f
             setPadding(0, dp(4), 0, dp(4))
             typeface = android.graphics.Typeface.MONOSPACE
-        }.also { addView(it) }
+        }
     }
 
     private fun LinearLayout.spacer(heightDp: Int): View {
-        return View(context).also {
-            addView(it, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(heightDp)))
+        return View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(heightDp))
         }
+    }
+
+    private fun LinearLayout.append(view: View) {
+        addView(view)
     }
 
     private fun chipButton(label: String, action: () -> Unit): MaterialButton {
