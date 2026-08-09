@@ -1,22 +1,11 @@
 package com.biruk.keyboardapp
 
 /**
- * State machine for the arranger transport layer.
- *
- * This deliberately keeps timing/audio pattern playback separate from the UI.
- * The next stage can attach MIDI/style pattern tracks without changing the
- * console controls.
+ * UI-independent arranger transport state machine.
+ * Pattern/MIDI playback can be attached here later without coupling it to the console UI.
  */
 class ArrangerEngine {
-    enum class Section {
-        STOPPED,
-        INTRO,
-        MAIN_A,
-        MAIN_B,
-        MAIN_C,
-        MAIN_D,
-        ENDING,
-    }
+    enum class Section { STOPPED, INTRO, MAIN_A, MAIN_B, MAIN_C, MAIN_D, ENDING }
 
     data class State(
         val running: Boolean = false,
@@ -34,6 +23,11 @@ class ArrangerEngine {
     }
 
     fun snapshot(): State = state
+
+    fun restore(restored: State) {
+        state = restored
+        publish()
+    }
 
     fun start() {
         state = state.copy(running = true, section = Section.MAIN_A, fillPending = false)
@@ -60,11 +54,7 @@ class ArrangerEngine {
     }
 
     fun fill() {
-        if (!state.running) {
-            state = state.copy(fillPending = true)
-        } else {
-            state = state.copy(fillPending = true)
-        }
+        state = state.copy(fillPending = true)
         publish()
     }
 
@@ -86,7 +76,5 @@ class ArrangerEngine {
         }
     }
 
-    private fun publish() {
-        listener?.invoke(state)
-    }
+    private fun publish() = listener?.invoke(state)
 }
