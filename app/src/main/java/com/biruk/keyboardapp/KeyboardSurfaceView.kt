@@ -17,6 +17,12 @@ class KeyboardSurfaceView(
     attrs: AttributeSet? = null,
 ) : View(context, attrs) {
 
+    constructor(
+        context: Context,
+        engine: KeyboardEngine,
+        onNotesChanged: (String) -> Unit,
+    ) : this(context, engine, onNotesChanged, null)
+
     private val startMidi = 21
     private val endMidi = 108
 
