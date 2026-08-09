@@ -286,6 +286,11 @@ class KeyboardConsoleActivity : AppCompatActivity() {
         return View(context).also { addView(it, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(heightDp))) }
     }
 
+    private fun LinearLayout.add(view: View): View {
+        addView(view)
+        return view
+    }
+
     private fun chipButton(label: String, action: () -> Unit): MaterialButton {
         return MaterialButton(this).apply {
             text = label
@@ -417,7 +422,7 @@ class KeyboardConsoleActivity : AppCompatActivity() {
     }
 
     private fun adjustTranspose(delta: Int) {
-        updateState(uiState.copy(transposeSemitones = (uiState.transposeSemitones + delta).coerceIn(-24, 24), lastScreenId = "performance", statusText = if (delta > 0) "Transpose up" else "Transpose down"))
+        updateState(uiState.copy(transposeSemitones = (uiState.transposeSemitones + delta).coerceIn(-24, 24), lastScreenId = "performance", statusText = "Transpose adjusted"))
     }
 
     private fun adjustTempo(delta: Int) {
