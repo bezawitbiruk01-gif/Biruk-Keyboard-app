@@ -18,6 +18,10 @@ class KeyboardSessionStore(context: Context) {
             tempo = prefs.getInt(KEY_TEMPO, 120),
             mixerBalance = prefs.getInt(KEY_MIXER_BALANCE, 50),
             effectDepth = prefs.getInt(KEY_EFFECT_DEPTH, 35),
+            arrangerRunning = prefs.getBoolean(KEY_ARRANGER_RUNNING, false),
+            arrangerSection = prefs.getString(KEY_ARRANGER_SECTION, "STOPPED") ?: "STOPPED",
+            syncStartEnabled = prefs.getBoolean(KEY_SYNC_START, false),
+            fillPending = prefs.getBoolean(KEY_FILL_PENDING, false),
             lastScreenId = prefs.getString(KEY_LAST_SCREEN_ID, "performance") ?: "performance",
             favoriteRegistrationsCsv = prefs.getString(KEY_FAVORITES, "") ?: "",
             statusText = prefs.getString(KEY_STATUS_TEXT, "Ready") ?: "Ready",
@@ -36,6 +40,10 @@ class KeyboardSessionStore(context: Context) {
             .putInt(KEY_TEMPO, state.tempo)
             .putInt(KEY_MIXER_BALANCE, state.mixerBalance)
             .putInt(KEY_EFFECT_DEPTH, state.effectDepth)
+            .putBoolean(KEY_ARRANGER_RUNNING, state.arrangerRunning)
+            .putString(KEY_ARRANGER_SECTION, state.arrangerSection)
+            .putBoolean(KEY_SYNC_START, state.syncStartEnabled)
+            .putBoolean(KEY_FILL_PENDING, state.fillPending)
             .putString(KEY_LAST_SCREEN_ID, state.lastScreenId)
             .putString(KEY_FAVORITES, state.favoriteRegistrationsCsv)
             .putString(KEY_STATUS_TEXT, state.statusText)
@@ -54,6 +62,10 @@ class KeyboardSessionStore(context: Context) {
         private const val KEY_TEMPO = "tempo"
         private const val KEY_MIXER_BALANCE = "mixer_balance"
         private const val KEY_EFFECT_DEPTH = "effect_depth"
+        private const val KEY_ARRANGER_RUNNING = "arranger_running"
+        private const val KEY_ARRANGER_SECTION = "arranger_section"
+        private const val KEY_SYNC_START = "sync_start"
+        private const val KEY_FILL_PENDING = "fill_pending"
         private const val KEY_LAST_SCREEN_ID = "last_screen_id"
         private const val KEY_FAVORITES = "favorite_registrations_csv"
         private const val KEY_STATUS_TEXT = "status_text"
